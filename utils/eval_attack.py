@@ -19,6 +19,7 @@ def eval_attack_targeted(
     model.eval()
 
     success = 0
+    adv_correct = 0
     total = 0
     start_time = timer.perf_counter()
 
@@ -45,6 +46,7 @@ def eval_attack_targeted(
 
         # targeted success if pred == target
         success += (preds == target).sum().item()
+        adv_correct += (preds == labels).sum().item()
         total += labels.size(0)
 
         eval_bar.set_postfix(
@@ -56,9 +58,10 @@ def eval_attack_targeted(
         model.train()
 
     success_rate = success / total
+    adv_test_acc = adv_correct / total
     time = timer.perf_counter() - start_time
 
-    return success_rate, time
+    return success_rate, adv_test_acc, time
 
 
 def eval_attack_untargeted(
@@ -75,6 +78,7 @@ def eval_attack_untargeted(
     model.eval()
 
     success = 0
+    adv_correct = 0
     total = 0
     start_time = timer.perf_counter()
 
@@ -94,6 +98,7 @@ def eval_attack_untargeted(
 
         # untargeted success if pred != label
         success += (preds != labels).sum().item()
+        adv_correct += (preds == labels).sum().item()
         total += labels.size(0)
 
         eval_bar.set_postfix(
@@ -105,6 +110,7 @@ def eval_attack_untargeted(
         model.train()
 
     success_rate = success / total
+    adv_test_acc = adv_correct / total
     time = timer.perf_counter() - start_time
 
-    return success_rate, time
+    return success_rate, adv_test_acc, time

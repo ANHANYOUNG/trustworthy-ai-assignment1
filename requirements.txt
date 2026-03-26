@@ -1,5 +1,9 @@
+# Core runtime
 torch
 torchvision
 matplotlib
 tqdm
+
+# Notebook / interactive checks
+ipython
 ipywidgets
