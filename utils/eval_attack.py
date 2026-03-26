@@ -10,7 +10,7 @@ def eval_attack_targeted(
     attack_fn,
     *,
     device,
-    num_classes=10,
+    target_cls=0,
     num_samples=100,
     desc="targeted attack",
     **attack_kwargs,
@@ -28,9 +28,15 @@ def eval_attack_targeted(
         if remaining <= 0:
             break
 
-        images = images[:remaining].to(device)
+        # only consider target
         labels = labels[:remaining].to(device)
-        target = (labels + 1) % num_classes
+        target_mask = labels != target_cls
+        if target_mask.sum().item() == 0:
+            continue
+
+        images = images[:remaining].to(device)[target_mask]
+        labels = labels[target_mask]
+        target = torch.full_like(labels, target_cls)
 
         x_adv = attack_fn(model, images, target, **attack_kwargs)
 
