@@ -24,7 +24,16 @@ def eval_accuracy(model, data_loader, *, device, desc):
     return correct / total
 
 
-def train_classifier(model, train_loader, test_loader, *, device, epochs=3, lr=1e-3):
+def train_classifier(
+    model,
+    train_loader,
+    test_loader,
+    *,
+    device,
+    epochs=3,
+    lr=1e-3,
+    run_name=None,
+):
     model = model.to(device)
 
     criterion = torch.nn.CrossEntropyLoss()
@@ -44,7 +53,11 @@ def train_classifier(model, train_loader, test_loader, *, device, epochs=3, lr=1
         running_correct = 0
         running_total = 0
 
-        train_bar = tqdm(train_loader, desc=f"train {epoch + 1}/{epochs}")
+        train_desc = f"train {epoch + 1}/{epochs}"
+        if run_name is not None:
+            train_desc = f"{run_name} {train_desc}"
+
+        train_bar = tqdm(train_loader, desc=train_desc)
         for images, labels in train_bar:
             images = images.to(device)
             labels = labels.to(device)
@@ -73,15 +86,23 @@ def train_classifier(model, train_loader, test_loader, *, device, epochs=3, lr=1
             model,
             test_loader,
             device=device,
-            desc=f"eval {epoch + 1}/{epochs}",
+            desc=(
+                f"{run_name} eval {epoch + 1}/{epochs}"
+                if run_name is not None
+                else f"eval {epoch + 1}/{epochs}"
+            ),
         )
 
         history["train_loss"].append(train_loss)
         history["train_acc"].append(train_acc)
         history["test_acc"].append(test_acc)
 
+        epoch_prefix = f"epoch {epoch + 1}"
+        if run_name is not None:
+            epoch_prefix = f"{run_name} {epoch_prefix}"
+
         print(
-            f"epoch {epoch + 1}: "
+            f"{epoch_prefix}: "
             f"train_loss={train_loss:.4f}, "
             f"train_acc={train_acc:.4f}, "
             f"test_acc={test_acc:.4f}"

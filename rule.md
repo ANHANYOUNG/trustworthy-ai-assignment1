@@ -97,9 +97,18 @@ pgd_untargeted(model, x, label, k, eps, eps_step)
 
 ## test.py 출력 요구사항
 
+과제 채점 비중:
+- Required outputs: `70%`
+- Analysis report: `30%`
+
 ### 실행 범위
 
 - 네 가지 공격 전부 실행
+- 각 공격별 개별 결과 확인 가능 상태:
+  - `targeted FGSM`
+  - `untargeted FGSM`
+  - `targeted PGD`
+  - `untargeted PGD`
 - 두 데이터셋 모두 실행:
   - `MNIST`
   - `CIFAR-10`
@@ -116,6 +125,7 @@ pgd_untargeted(model, x, label, k, eps, eps_step)
 
 - 최소 `5개` sample 시각화
 - side-by-side 구성
+- 실행 시 결과를 확인할 수 있게 display 가능 상태
 - 포함 요소:
   - original image + predicted label
   - adversarial image + incorrect prediction
@@ -130,7 +140,9 @@ pgd_untargeted(model, x, label, k, eps, eps_step)
 - 포함 내용:
   - epsilon별 attack success rate 표
   - 공격별 효과 차이 논의
+  - 왜 어떤 공격이 더 효과적인지 설명
   - epsilon과 perturbation visibility trade-off 논의
+  - epsilon이 attack success rate와 perturbation visibility에 주는 영향 설명
 - 예시 epsilon:
   - `0.05`
   - `0.1`
@@ -144,10 +156,12 @@ pgd_untargeted(model, x, label, k, eps, eps_step)
 - 저장소 요구:
   - incremental commit history
   - single bulk commit 지양
+  - git log inspect 가능성 고려
 - 보고서 요구:
   - 본인 해석과 reasoning
   - 실험 중 관찰한 구체적 behavior
   - unexpected result 포함
+  - generic description 지양
 
 ## 최종 제출물
 

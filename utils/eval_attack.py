@@ -47,7 +47,10 @@ def eval_attack_targeted(
         success += (preds == target).sum().item()
         total += labels.size(0)
 
-        eval_bar.set_postfix(success_rate=f"{success / total:.4f}")
+        eval_bar.set_postfix(
+            samples=f"{total}/{num_samples}",
+            success_rate=f"{success / total:.4f}",
+        )
 
     if was_training:
         model.train()
@@ -93,7 +96,10 @@ def eval_attack_untargeted(
         success += (preds != labels).sum().item()
         total += labels.size(0)
 
-        eval_bar.set_postfix(success_rate=f"{success / total:.4f}")
+        eval_bar.set_postfix(
+            samples=f"{total}/{num_samples}",
+            success_rate=f"{success / total:.4f}",
+        )
 
     if was_training:
         model.train()
