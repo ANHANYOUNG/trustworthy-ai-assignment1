@@ -2,12 +2,13 @@ import torch.nn as nn
 
 
 class MNISTCNN(nn.Module):
-    # dropout, bn, softmax for comparison
+    # dropout, bn, relu/gelu, softmax for comparison
     def __init__(
         self,
         *,
         use_dropout=False,
         use_bn=False,
+        use_gelu=False,
         use_softmax=False,
         dropout_p=0.5,
         hidden_dim=128,
@@ -15,16 +16,18 @@ class MNISTCNN(nn.Module):
     ):
         super().__init__()
 
+        act = nn.GELU() if use_gelu else nn.ReLU(inplace=True)
+
         # input: (1, 28, 28)
         # 2 conv layers
         self.features = nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=3, padding=1),        # (in_channels, out_channels, kernel_size, padding)
             nn.BatchNorm2d(32) if use_bn else nn.Identity(),
-            nn.ReLU(inplace=True),
+            act,
             nn.MaxPool2d(kernel_size=2),                       # (1, 28, 28) -> (32, 14, 14)
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64) if use_bn else nn.Identity(),
-            nn.ReLU(inplace=True),
+            nn.GELU() if use_gelu else nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),                       # (32, 14, 14) -> (64, 7, 7)
         )
 
@@ -33,7 +36,7 @@ class MNISTCNN(nn.Module):
             nn.Flatten(),
             nn.Linear(64 * 7 * 7, hidden_dim),
             nn.BatchNorm1d(hidden_dim) if use_bn else nn.Identity(),
-            nn.ReLU(inplace=True),
+            nn.GELU() if use_gelu else nn.ReLU(inplace=True),
             nn.Dropout(p=dropout_p) if use_dropout else nn.Identity(),
             nn.Linear(hidden_dim, num_cls),
         )
