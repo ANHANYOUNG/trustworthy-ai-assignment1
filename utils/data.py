@@ -19,6 +19,7 @@ def get_dataloaders(
     data_root = Path(data_root)
     pin_memory = torch.cuda.is_available() if pin_memory is None else pin_memory
 
+    # mnist/cifar10/cifar10_preprocess
     if dataset_name == "mnist":
         train_transform = transforms.ToTensor()
         test_transform = transforms.ToTensor()
@@ -41,7 +42,9 @@ def get_dataloaders(
         dataset_name = "cifar10"
         dataset_root = data_root / "cifar10"
 
+        # data augmentation
         if use_preprocess:
+            # preprocess: resize, flip
             train_transform = transforms.Compose(
                 [
                     transforms.Resize((224, 224)),
@@ -57,6 +60,7 @@ def get_dataloaders(
             )
             input_shape = (3, 224, 224)
         else:
+            # no preprocess: random crop, flip
             train_transform = transforms.Compose(
                 [
                     transforms.RandomCrop(32, padding=4),
