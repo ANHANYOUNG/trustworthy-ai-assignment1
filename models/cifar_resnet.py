@@ -11,13 +11,24 @@ def replace_relu(module, *, use_gelu):
             replace_relu(child, use_gelu=use_gelu)
 
 
+def replace_batchnorm(module):
+    for name, child in module.named_children():
+        if isinstance(child, (nn.BatchNorm1d, nn.BatchNorm2d)):
+            setattr(module, name, nn.Identity())
+        else:
+            replace_batchnorm(child)
+
+
 class CIFARResNet(nn.Module):
     def __init__(
         self,
         *,
         use_pretrained=False,
+        use_dropout=False,
+        use_bn=True,
         use_gelu=False,
         use_softmax=False,
+        dropout_p=0.5,
         num_cls=10,
     ):
         super().__init__()
@@ -80,10 +91,19 @@ class CIFARResNet(nn.Module):
             self.mean = None
             self.std = None
 
+        if not use_bn:
+            replace_batchnorm(self.backbone)
+
         replace_relu(self.backbone, use_gelu=use_gelu)
 
         input_features = self.backbone.fc.in_features # 512 for ResNet-18
-        self.backbone.fc = nn.Linear(input_features, num_cls)
+        if use_dropout:
+            self.backbone.fc = nn.Sequential(
+                nn.Dropout(p=dropout_p),
+                nn.Linear(input_features, num_cls),
+            )
+        else:
+            self.backbone.fc = nn.Linear(input_features, num_cls)
 
         self.out = nn.Softmax(dim=1) if use_softmax else nn.Identity()
 
@@ -94,4 +114,3 @@ class CIFARResNet(nn.Module):
         x = self.backbone(x)
         x = self.out(x)
         return x
-
