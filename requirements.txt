@@ -3,6 +3,7 @@ torch
 torchvision
 matplotlib
 tqdm
+scikit-learn
 
 # Notebook / interactive checks
 ipython

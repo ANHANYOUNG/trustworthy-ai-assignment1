@@ -1,5 +1,4 @@
 import csv
-from collections import defaultdict
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -11,6 +10,8 @@ from models.cifar_resnet import CIFARResNet
 from models.mnist_cnn import MNISTCNN
 from utils.data import get_dataloaders
 from utils.eval_attack import eval_attack_targeted, eval_attack_untargeted
+
+PANEL_LABELS = ["(a)", "(b)", "(c)", "(d)"]
 
 
 def get_device():
@@ -51,6 +52,22 @@ def get_display_name(dataset_name):
     return "MNIST"
 
 
+def setup_paper_style():
+    plt.rcParams.update(
+        {
+            "font.size": 10,
+            "axes.titlesize": 11,
+            "axes.labelsize": 10,
+            "legend.fontsize": 9,
+            "figure.titlesize": 13,
+        }
+    )
+
+
+def format_attack_name(attack_name, attack_type):
+    return f"{attack_name.upper()} {attack_type}"
+
+
 def get_sweep_settings(dataset_name):
     if dataset_name == "mnist":
         return {
@@ -82,7 +99,7 @@ def get_ablation_csv_path():
             return path
     raise FileNotFoundError("ablation_results.csv not found")
 
-
+# load the best for eps sweep
 def load_best_clean_rows():
     csv_path = get_ablation_csv_path()
     rows = list(csv.DictReader(csv_path.open()))
@@ -106,7 +123,7 @@ def load_model_from_row(dataset_name, row, *, device):
     model.eval()
     return model
 
-
+# run attack
 def evaluate_attack(dataset_name, model, dataset, attack_name, attack_type, eps, *, device):
     settings = get_sweep_settings(dataset_name)
     target_cls = settings["target_cls"]
@@ -177,28 +194,52 @@ def save_rows(rows, save_path):
 
 
 def save_metric_plot(dataset_name, rows, metric_key, ylabel, save_path):
-    grouped = defaultdict(list)
-    for row in rows:
-        attack_label = f"{row['attack_name']} {row['attack_type']}"
-        grouped[attack_label].append(row)
+    setup_paper_style()
+    style_map = {
+        "targeted": {"linestyle": "-", "marker": "o", "color": "#1f77b4"},
+        "untargeted": {"linestyle": "--", "marker": "s", "color": "#d62728"},
+    }
 
-    plt.figure(figsize=(7, 5))
-    for attack_label, attack_rows in grouped.items():
-        attack_rows = sorted(attack_rows, key=lambda row: row["eps"])
-        plt.plot(
-            [row["eps"] for row in attack_rows],
-            [row[metric_key] for row in attack_rows],
-            marker="o",
-            label=attack_label,
-        )
+    fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.2), sharey=True)
 
-    plt.xlabel("epsilon")
-    plt.ylabel(ylabel)
-    plt.title(f"{get_display_name(dataset_name)} | {ylabel} vs epsilon")
-    plt.grid(True, alpha=0.3)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=200, bbox_inches="tight")
+    for axis_idx, attack_name in enumerate(["fgsm", "pgd"]):
+        ax = axes[axis_idx]
+        attack_rows = [row for row in rows if row["attack_name"] == attack_name]
+
+        for attack_type in ["targeted", "untargeted"]:
+            type_rows = sorted(
+                [row for row in attack_rows if row["attack_type"] == attack_type],
+                key=lambda row: row["eps"],
+            )
+            style = style_map[attack_type]
+            ax.plot(
+                [row["eps"] for row in type_rows],
+                [row[metric_key] for row in type_rows],
+                label=attack_type.capitalize(),
+                linewidth=1.8,
+                markersize=5,
+                **style,
+            )
+
+        ax.set_title(f"{PANEL_LABELS[axis_idx]} {attack_name.upper()}")
+        ax.set_xlabel("Epsilon")
+        if axis_idx == 0:
+            ax.set_ylabel(ylabel)
+        ax.grid(alpha=0.2, linewidth=0.5)
+        ax.set_axisbelow(True)
+
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.02),
+        ncol=2,
+        frameon=False,
+    )
+    fig.suptitle(f"{get_display_name(dataset_name)} | {ylabel} vs epsilon", y=0.99)
+    fig.tight_layout(rect=[0.0, 0.08, 1.0, 0.92])
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
 
 
@@ -276,6 +317,7 @@ def show_image(ax, image):
 
 
 def save_epsilon_visualization(dataset_name, model, dataset, attack_name, attack_type, eps_list, *, config_tag, results_dir):
+    setup_paper_style()
     settings = get_sweep_settings(dataset_name)
     class_names = dataset["class_names"]
     targeted = attack_type == "targeted"
@@ -294,7 +336,7 @@ def save_epsilon_visualization(dataset_name, model, dataset, attack_name, attack
     fig, axes = plt.subplots(
         len(eps_list),
         num_samples * 3,
-        figsize=(3.0 * num_samples * 3, 3.0 * len(eps_list)),
+        figsize=(2.45 * num_samples * 3, 2.45 * len(eps_list)),
     )
     if len(eps_list) == 1:
         axes = axes.reshape(1, -1)
@@ -328,65 +370,45 @@ def save_epsilon_visualization(dataset_name, model, dataset, attack_name, attack
             adv_pred_name = class_names[int(adv_preds[sample_idx].item())]
 
             if row_idx == 0:
-                ax_orig.set_title(f"original\nsample {sample_idx + 1}", fontsize=10)
-                ax_adv.set_title(f"adversarial\nsample {sample_idx + 1}", fontsize=10)
-                ax_pert.set_title(f"perturbation\nx10", fontsize=10)
+                ax_orig.set_title(f"Sample {sample_idx + 1}\nOriginal", fontsize=10, pad=8)
+                ax_adv.set_title("Adversarial", fontsize=10, pad=8)
+                ax_pert.set_title("Perturbation x10", fontsize=10, pad=8)
 
-            ax_orig.text(
-                0.5,
-                -0.12,
-                f"gt:{gt_name}\npred:{orig_pred_name}",
-                transform=ax_orig.transAxes,
-                ha="center",
-                va="top",
-                fontsize=9,
-            )
+            ax_orig.text(0.5, -0.08, f"GT: {gt_name}", transform=ax_orig.transAxes, ha="center", va="top", fontsize=8)
+            ax_adv.text(0.5, -0.08, f"pred: {adv_pred_name}", transform=ax_adv.transAxes, ha="center", va="top", fontsize=8)
             if targeted:
                 target_name = class_names[settings["target_cls"]]
-                ax_adv.text(
-                    0.5,
-                    -0.12,
-                    f"pred:{adv_pred_name}\ntgt:{target_name}",
-                    transform=ax_adv.transAxes,
-                    ha="center",
-                    va="top",
-                    fontsize=9,
-                )
+                ax_pert.text(0.5, -0.08, f"target: {target_name}", transform=ax_pert.transAxes, ha="center", va="top", fontsize=8)
             else:
-                ax_adv.text(
-                    0.5,
-                    -0.12,
-                    f"pred:{adv_pred_name}",
-                    transform=ax_adv.transAxes,
-                    ha="center",
-                    va="top",
-                    fontsize=9,
-                )
+                ax_pert.text(0.5, -0.08, f"clean pred: {orig_pred_name}", transform=ax_pert.transAxes, ha="center", va="top", fontsize=8)
 
             if sample_idx == 0:
-                row_label = f"eps={eps:.4f}"
+                row_label = f"{PANEL_LABELS[row_idx]} ε={eps:.4f}"
                 if eps_step is not None:
                     row_label += f"\nstep={eps_step:.4f}"
                 ax_orig.text(
-                    -0.55,
+                    -0.4,
                     0.5,
                     row_label,
                     transform=ax_orig.transAxes,
-                    ha="left",
+                    ha="right",
                     va="center",
                     fontsize=10,
                     clip_on=False,
                 )
 
     fig.suptitle(
-        f"{get_display_name(dataset_name)} | {attack_name} {attack_type} | best clean {config_tag}",
-        fontsize=14,
-        y=0.98,
+        (
+            f"{get_display_name(dataset_name)} | {format_attack_name(attack_name, attack_type)} | epsilon sweep\n"
+            f"Best clean: {config_tag}"
+        ),
+        fontsize=13,
+        y=0.99,
     )
-    fig.tight_layout(rect=[0.12, 0.04, 1.0, 0.95])
+    fig.tight_layout(rect=[0.06, 0.04, 1.0, 0.9])
 
     save_path = results_dir / f"{dataset_name}_{attack_name}_{attack_type}_sweep.png"
-    fig.savefig(save_path, dpi=200, bbox_inches="tight")
+    fig.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
 
