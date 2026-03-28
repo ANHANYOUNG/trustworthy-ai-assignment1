@@ -68,6 +68,20 @@ def format_attack_name(attack_name, attack_type):
     return f"{attack_name.upper()} {attack_type}"
 
 
+def format_eps(dataset_name, eps):
+    if dataset_name == "cifar10":
+        scaled = eps * 255
+        rounded = round(scaled)
+        if abs(scaled - rounded) < 1e-8:
+            return f"{rounded}/255"
+        return f"{scaled:.2f}/255"
+    return f"{eps:.4f}"
+
+
+def get_eps_ticklabels(dataset_name, eps_list):
+    return [format_eps(dataset_name, eps) for eps in eps_list]
+
+
 def get_sweep_settings(dataset_name):
     if dataset_name == "mnist":
         return {
@@ -138,7 +152,7 @@ def evaluate_attack(dataset_name, model, dataset, attack_name, attack_type, eps,
                 device=device,
                 target_cls=target_cls,
                 num_samples=num_samples,
-                desc=f"{dataset_name} fgsm targeted eps={eps:.4f}",
+                desc=f"{dataset_name} fgsm targeted eps={format_eps(dataset_name, eps)}",
                 eps=eps,
             )
             return success_rate, adv_test_acc, time, None
@@ -149,7 +163,7 @@ def evaluate_attack(dataset_name, model, dataset, attack_name, attack_type, eps,
             fgsm_untargeted,
             device=device,
             num_samples=num_samples,
-            desc=f"{dataset_name} fgsm untargeted eps={eps:.4f}",
+            desc=f"{dataset_name} fgsm untargeted eps={format_eps(dataset_name, eps)}",
             eps=eps,
         )
         return success_rate, adv_test_acc, time, None
@@ -163,7 +177,7 @@ def evaluate_attack(dataset_name, model, dataset, attack_name, attack_type, eps,
             device=device,
             target_cls=target_cls,
             num_samples=num_samples,
-            desc=f"{dataset_name} pgd targeted eps={eps:.4f}",
+            desc=f"{dataset_name} pgd targeted eps={format_eps(dataset_name, eps)}",
             k=settings["pgd_k"],
             eps=eps,
             eps_step=eps_step,
@@ -176,7 +190,7 @@ def evaluate_attack(dataset_name, model, dataset, attack_name, attack_type, eps,
         pgd_untargeted,
         device=device,
         num_samples=num_samples,
-        desc=f"{dataset_name} pgd untargeted eps={eps:.4f}",
+        desc=f"{dataset_name} pgd untargeted eps={format_eps(dataset_name, eps)}",
         k=settings["pgd_k"],
         eps=eps,
         eps_step=eps_step,
@@ -201,6 +215,8 @@ def save_metric_plot(dataset_name, rows, metric_key, ylabel, save_path):
     }
 
     fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.2), sharey=True)
+    eps_list = get_sweep_settings(dataset_name)["eps_list"]
+    tick_labels = get_eps_ticklabels(dataset_name, eps_list)
 
     for axis_idx, attack_name in enumerate(["fgsm", "pgd"]):
         ax = axes[axis_idx]
@@ -223,6 +239,8 @@ def save_metric_plot(dataset_name, rows, metric_key, ylabel, save_path):
 
         ax.set_title(f"{PANEL_LABELS[axis_idx]} {attack_name.upper()}")
         ax.set_xlabel("Epsilon")
+        ax.set_xticks(eps_list)
+        ax.set_xticklabels(tick_labels)
         if axis_idx == 0:
             ax.set_ylabel(ylabel)
         ax.grid(alpha=0.2, linewidth=0.5)
@@ -383,9 +401,9 @@ def save_epsilon_visualization(dataset_name, model, dataset, attack_name, attack
                 ax_pert.text(0.5, -0.08, f"clean pred: {orig_pred_name}", transform=ax_pert.transAxes, ha="center", va="top", fontsize=8)
 
             if sample_idx == 0:
-                row_label = f"{PANEL_LABELS[row_idx]} ε={eps:.4f}"
+                row_label = f"{PANEL_LABELS[row_idx]} ε={format_eps(dataset_name, eps)}"
                 if eps_step is not None:
-                    row_label += f"\nstep={eps_step:.4f}"
+                    row_label += f"\nstep={format_eps(dataset_name, eps_step)}"
                 ax_orig.text(
                     -0.4,
                     0.5,
@@ -462,7 +480,9 @@ def main():
                         "attack_name": attack_name,
                         "attack_type": attack_type,
                         "eps": eps,
+                        "eps_label": format_eps(dataset_name, eps),
                         "eps_step": "" if eps_step is None else eps_step,
+                        "eps_step_label": "" if eps_step is None else format_eps(dataset_name, eps_step),
                         "success_rate": success_rate,
                         "adv_test_acc": adv_test_acc,
                         "time": time,

@@ -35,6 +35,23 @@ If you want to choose a specific GPU:
 CUDA_VISIBLE_DEVICES=0 python test.py
 ```
 
+Additional analysis scripts:
+
+```bash
+python ablation.py
+python sweep.py
+python tsne.py
+python sal_map.py
+```
+
+Recommended order:
+
+1. `python test.py`
+2. `python ablation.py`
+3. `python sweep.py`
+4. `python tsne.py`
+5. `python sal_map.py`
+
 ## What `test.py` Does
 
 - loads `MNIST` and `CIFAR-10`
@@ -44,6 +61,28 @@ CUDA_VISIBLE_DEVICES=0 python test.py
 - evaluates FGSM / PGD, targeted / untargeted
 - prints success rate, adversarial test accuracy, and attack time
 - saves visualization PNG files into `results/`
+
+## Analysis Scripts
+
+- `ablation.py`
+  - runs all `dropout / batchnorm / gelu` combinations for `MNIST` and `CIFAR-10`
+  - saves checkpoints under `ckpts/`
+  - saves metrics and prediction-comparison figures under `results/ablation/`
+
+- `sweep.py`
+  - loads the best clean checkpoint from `results/ablation/ablation_results.csv`
+  - runs epsilon sweep for both datasets
+  - saves metric plots and epsilon sweep figures under `results/sweep/`
+
+- `tsne.py`
+  - loads the best clean checkpoint from `results/ablation/ablation_results.csv`
+  - generates `clean / targeted / untargeted` t-SNE figures
+  - saves figures under `results/t-SNE/`
+
+- `sal_map.py`
+  - loads the best clean checkpoint from `results/ablation/ablation_results.csv`
+  - generates `clean / targeted / untargeted` saliency map figures
+  - saves figures under `results/saliency_map/`
 
 ## Example Final Log
 
@@ -88,6 +127,10 @@ pgd untargeted    1.0000          0.0000          0.14s
 ## Main Files
 
 - `test.py`
+- `ablation.py`
+- `sweep.py`
+- `tsne.py`
+- `sal_map.py`
 - `models/mnist_cnn.py`
 - `models/cifar_resnet.py`
 - `attacks/fgsm.py`
@@ -111,7 +154,17 @@ Attack visualizations are saved under `results/`, for example:
 - `results/cifar10_pgd_targeted.png`
 - `results/cifar10_pgd_untargeted.png`
 
+Additional analysis outputs:
+
+- `results/ablation/ablation_results.csv`
+- `results/ablation/*.png`
+- `results/sweep/epsilon_sweep_results.csv`
+- `results/sweep/*.png`
+- `results/t-SNE/*.png`
+- `results/saliency_map/*.png`
+
 ## Notes
 
 - `test.py` uses a scratch `CIFARResNet` baseline with `use_pretrained=False`
 - `debug/test.ipynb` is for step-by-step verification and debugging
+- `sweep.py`, `tsne.py`, and `sal_map.py` expect `results/ablation/ablation_results.csv` to exist first

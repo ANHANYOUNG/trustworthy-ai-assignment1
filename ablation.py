@@ -20,6 +20,25 @@ def get_device():
     return torch.device("cpu")
 
 
+def format_eps(dataset_name, eps):
+    if dataset_name == "cifar10":
+        scaled = eps * 255
+        rounded = round(scaled)
+        if abs(scaled - rounded) < 1e-8:
+            return f"{rounded}/255"
+        return f"{scaled:.2f}/255"
+    return f"{eps:.4f}"
+
+
+def format_attack_settings(dataset_name, attack_settings):
+    return (
+        f"FGSM eps={format_eps(dataset_name, attack_settings['fgsm_eps'])} | "
+        f"PGD eps={format_eps(dataset_name, attack_settings['pgd_eps'])}, "
+        f"step={format_eps(dataset_name, attack_settings['pgd_eps_step'])}, "
+        f"k={attack_settings['pgd_k']}"
+    )
+
+
 def get_configs():
     configs = []
     for use_dropout, use_bn, use_gelu in product([False, True], repeat=3):
@@ -429,7 +448,10 @@ def save_prediction_visualizations(dataset_name, dataset, rows, *, results_dir, 
                     )
 
         fig.suptitle(
-            f"{display_name} | {mode.replace('_', ' ')} | prediction comparison",
+            (
+                f"{display_name} | {mode.replace('_', ' ')} | prediction comparison\n"
+                f"{format_attack_settings(dataset_name, attack_settings)}"
+            ),
             fontsize=14,
             y=0.98,
         )
@@ -528,8 +550,11 @@ def main():
                 "target_cls": attack_results["target_cls"],
                 "num_samples": attack_results["num_samples"],
                 "fgsm_eps": attack_results["fgsm_eps"],
+                "fgsm_eps_label": format_eps(dataset_name, attack_results["fgsm_eps"]),
                 "pgd_eps": attack_results["pgd_eps"],
+                "pgd_eps_label": format_eps(dataset_name, attack_results["pgd_eps"]),
                 "pgd_eps_step": attack_results["pgd_eps_step"],
+                "pgd_eps_step_label": format_eps(dataset_name, attack_results["pgd_eps_step"]),
                 "pgd_k": attack_results["pgd_k"],
                 "fgsm_targeted_sr": attack_results["fgsm_targeted_sr"],
                 "fgsm_targeted_adv_acc": attack_results["fgsm_targeted_adv_acc"],

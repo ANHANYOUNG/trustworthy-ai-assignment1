@@ -11,7 +11,6 @@ from models.mnist_cnn import MNISTCNN
 from utils.data import get_dataloaders
 
 TARGET_CLS = 0
-PANEL_LABELS = ["(a)", "(b)", "(c)"]
 
 
 def get_device():
@@ -42,6 +41,16 @@ def format_variant_name(name):
             return "Untargeted"
         return "Targeted"
     return "Clean"
+
+
+def format_eps(dataset_name, eps):
+    if dataset_name == "cifar10":
+        scaled = eps * 255
+        rounded = round(scaled)
+        if abs(scaled - rounded) < 1e-8:
+            return f"{rounded}/255"
+        return f"{scaled:.2f}/255"
+    return f"{eps:.4f}"
 
 
 def get_attack_settings(dataset_name):
@@ -121,7 +130,7 @@ def load_model_from_row(dataset_name, row, *, device):
     return model
 
 
-def collect_correct_samples(model, dataset, *, device, num_samples=5, target_cls=TARGET_CLS):
+def collect_correct_samples(model, dataset, *, device, num_samples=3, target_cls=TARGET_CLS):
     images_list = []
     labels_list = []
     preds_list = []
@@ -240,71 +249,58 @@ def show_saliency(ax, saliency):
 def save_saliency_plot(dataset_name, model, row, labels, class_names, *, results_dir, attack_name, variants):
     setup_paper_style()
     images = variants[0][1]
-    num_rows = len(variants)
     num_samples = images.size(0)
-    fig, axes = plt.subplots(
-        num_rows,
-        num_samples * 2,
-        figsize=(2.4 * num_samples * 2, 2.5 * num_rows),
-    )
-    if num_rows == 1:
-        axes = axes.reshape(1, num_samples * 2)
+    num_variants = len(variants)
+    fig, axes = plt.subplots(num_samples * 2, num_variants, figsize=(3.9, 8.8))
+    fig.patch.set_facecolor("white")
+    if num_samples == 1:
+        axes = axes.reshape(2, num_variants)
 
-    for variant_idx, (variant_name, variant_images) in enumerate(variants):
+    variant_outputs = []
+    for variant_name, variant_images in variants:
         preds, saliency = compute_saliency(model, variant_images)
+        variant_outputs.append((variant_name, variant_images, preds, saliency))
 
-        for sample_idx in range(num_samples):
-            image_ax = axes[variant_idx, 2 * sample_idx]
-            saliency_ax = axes[variant_idx, 2 * sample_idx + 1]
+    for sample_idx in range(num_samples):
+        image_row = 2 * sample_idx
+        saliency_row = 2 * sample_idx + 1
+        for variant_idx, (variant_name, variant_images, preds, saliency) in enumerate(variant_outputs):
+            image_ax = axes[image_row, variant_idx]
+            saliency_ax = axes[saliency_row, variant_idx]
 
             show_image(image_ax, variant_images[sample_idx])
             show_saliency(saliency_ax, saliency[sample_idx])
 
-            gt_name = class_names[int(labels[sample_idx].item())]
             pred_name = class_names[int(preds[sample_idx].item())]
             image_ax.text(
                 0.5,
-                -0.08,
+                -0.06,
                 f"pred: {pred_name}",
                 transform=image_ax.transAxes,
                 ha="center",
                 va="top",
-                fontsize=8,
+                fontsize=6.5,
             )
 
-            if variant_idx == 0:
-                image_ax.set_title(f"Sample {sample_idx + 1}\nGT: {gt_name}", fontsize=10, pad=8)
-                saliency_ax.set_title("Saliency", fontsize=10, pad=8)
+    fig.subplots_adjust(left=0.16, right=0.995, bottom=0.03, top=0.92, wspace=0.005, hspace=0.22)
 
-        axes[variant_idx, 0].text(
-            -0.22,
-            0.5,
-            f"{PANEL_LABELS[variant_idx]} {format_variant_name(variant_name)}",
-            transform=axes[variant_idx, 0].transAxes,
-            ha="right",
-            va="center",
-            fontsize=11,
-            clip_on=False,
-        )
-
-    settings = get_attack_settings(dataset_name)
-    if attack_name == "fgsm":
-        attack_text = f"FGSM eps={settings['fgsm_eps']:.4f}"
-    else:
-        attack_text = (
-            f"PGD eps={settings['pgd_eps']:.4f}, "
-            f"step={settings['pgd_eps_step']:.4f}, k={settings['pgd_k']}"
+    for variant_idx, (variant_name, _, _, _) in enumerate(variant_outputs):
+        pos = axes[0, variant_idx].get_position()
+        x_center = (pos.x0 + pos.x1) / 2
+        fig.text(
+            x_center,
+            0.935,
+            format_variant_name(variant_name),
+            ha="center",
+            va="bottom",
+            fontsize=10,
         )
 
     fig.suptitle(
-        (
-            f"{get_display_name(dataset_name)} | {attack_name.upper()} saliency map | clean vs targeted vs untargeted\n"
-            f"Best clean: {row['config_tag']} | target class: {TARGET_CLS} | {attack_text}"
-        ),
+        f"{get_display_name(dataset_name)} {attack_name.upper()} saliency maps",
         fontsize=13,
         y=0.99,
     )
-    fig.tight_layout(rect=[0.05, 0.02, 1.0, 0.9])
 
     save_path = results_dir / f"{dataset_name}_saliency_{attack_name}_targeted_vs_untargeted_{row['config_tag']}.png"
     fig.savefig(save_path, dpi=300, bbox_inches="tight")
@@ -328,7 +324,7 @@ def main():
             model,
             dataset,
             device=device,
-            num_samples=5,
+            num_samples=3,
             target_cls=TARGET_CLS,
         )
         attack_variants = build_attack_variants(

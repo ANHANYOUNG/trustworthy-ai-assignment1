@@ -12,7 +12,6 @@ from models.mnist_cnn import MNISTCNN
 from utils.data import get_dataloaders
 
 TARGET_CLS = 0
-PANEL_LABELS = ["(a)", "(b)", "(c)"]
 
 
 def get_device():
@@ -45,6 +44,16 @@ def format_variant_name(name):
             return "Untargeted"
         return "Targeted"
     return "Clean"
+
+
+def format_eps(dataset_name, eps):
+    if dataset_name == "cifar10":
+        scaled = eps * 255
+        rounded = round(scaled)
+        if abs(scaled - rounded) < 1e-8:
+            return f"{rounded}/255"
+        return f"{scaled:.2f}/255"
+    return f"{eps:.4f}"
 
 
 def get_attack_settings(dataset_name):
@@ -257,7 +266,7 @@ def save_tsne_plot(dataset_name, model, row, labels, class_names, *, results_dir
     x_pad = 0.05 * (x_max - x_min)
     y_pad = 0.05 * (y_max - y_min)
 
-    fig, axes = plt.subplots(1, len(variants), figsize=(12.5, 4.2), sharex=True, sharey=True)
+    fig, axes = plt.subplots(len(variants), 1, figsize=(4.8, 10.0), sharex=True, sharey=True)
     if len(variants) == 1:
         axes = [axes]
 
@@ -269,18 +278,19 @@ def save_tsne_plot(dataset_name, model, row, labels, class_names, *, results_dir
             embedding[mask, 1],
             c=all_labels[mask],
             cmap="tab10",
-            s=7,
-            alpha=0.85,
+            s=6,
+            alpha=0.8,
             linewidths=0,
+            rasterized=True,
         )
-        ax.set_title(f"{PANEL_LABELS[state_idx]} {format_variant_name(title)}")
+        ax.set_title(format_variant_name(title))
         ax.set_xlim(x_min - x_pad, x_max + x_pad)
         ax.set_ylim(y_min - y_pad, y_max + y_pad)
         ax.set_xlabel("t-SNE 1")
-        if state_idx == 0:
-            ax.set_ylabel("t-SNE 2")
-        ax.grid(alpha=0.15, linewidth=0.5)
+        ax.set_ylabel("t-SNE 2")
+        ax.grid(alpha=0.12, linewidth=0.5)
         ax.set_axisbelow(True)
+        ax.tick_params(labelsize=8)
 
     handles, _ = scatter.legend_elements(num=len(class_names))
     fig.legend(
@@ -291,26 +301,16 @@ def save_tsne_plot(dataset_name, model, row, labels, class_names, *, results_dir
         bbox_to_anchor=(0.5, -0.02),
         ncol=min(len(class_names), 5),
         frameon=False,
+        columnspacing=0.9,
+        handletextpad=0.4,
     )
 
-    settings = get_attack_settings(dataset_name)
-    if attack_name == "fgsm":
-        attack_text = f"FGSM eps={settings['fgsm_eps']:.4f}"
-    else:
-        attack_text = (
-            f"PGD eps={settings['pgd_eps']:.4f}, "
-            f"step={settings['pgd_eps_step']:.4f}, k={settings['pgd_k']}"
-        )
-
     fig.suptitle(
-        (
-            f"{get_display_name(dataset_name)} | {attack_name.upper()} | clean vs targeted vs untargeted\n"
-            f"Best clean: {row['config_tag']} | target class: {TARGET_CLS} | {attack_text}"
-        ),
+        f"{get_display_name(dataset_name)} {attack_name.upper()} t-SNE embeddings",
         fontsize=13,
         y=0.99,
     )
-    fig.tight_layout(rect=[0.0, 0.08, 1.0, 0.9])
+    fig.tight_layout(rect=[0.0, 0.08, 1.0, 0.95])
 
     save_path = results_dir / f"{dataset_name}_tsne_{attack_name}_targeted_vs_untargeted_{row['config_tag']}.png"
     fig.savefig(save_path, dpi=300, bbox_inches="tight")
